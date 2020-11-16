@@ -1,32 +1,16 @@
 #!/usr/bin/bash
+#SBATCH -p short -N 1 -n 1 --mem 3gb --out logs/index.log
 module load samtools/1.9
 module load bwa/0.7.17
-module load picard
 if [ -f config.txt ]; then
 	source config.txt
 fi
-pushd genome
+
+# Genome was manually installed here
+# From Local project work see 
+# /bigdata/stajichlab/stajichcollab/Tgen/Silveira_pac/annotation/Pilon/annotate/Coccidioides_posadasii_Silveira/annotate_results/
 # THIS IS EXAMPLE CODE FOR HOW TO DOWNLOAD DIRECT FROM FUNGIDB
-RELEASE=39
-SPECIES=AfumigatusAf293
-URL=https://fungidb.org/common/downloads/release-${RELEASE}/$SPECIES
-PREF=FungiDB-${RELEASE}_${SPECIES}
-FASTAFILE=${PREF}_Genome.fasta
-DOMAINFILE=${PREF}_InterproDomains.txt
-GFF=${PREF}.gff
-## THIS IS FUNGIDB DOWNLOAD PART
-echo "working off $FASTAFILE - check if these don't match may need to update config/init script"
-
-if [ ! -f $DOMAINFILE ]; then
-	curl -O $URL/txt/$DOMAINFILE
-fi
-if [ ! -f $FASTAFILE ] ; then
-	curl -O $URL/fasta/data/$FASTAFILE
-fi
-if [ ! -f $GFF ]; then
-	curl -O $URL/gff/data/$GFF
-fi
-
+FASTAFILE=$REFGENOME
 if [[ ! -f $FASTAFILE.fai || $FASTAFILE -nt $FASTAFILE.fai ]]; then
 	samtools faidx $FASTAFILE
 fi
@@ -34,12 +18,9 @@ if [[ ! -f $FASTAFILE.bwt || $FASTAFILE -nt $FASTAFILE.bwt ]]; then
 	bwa index $FASTAFILE
 fi
 
-DICT=$(basename $FASTAFILE .fasta)".dict"
-
+DICT=genome/$(basename $FASTAFILE .fa)".dict"
+echo "$DICT"
 if [[ ! -f $DICT || $FASTAFILE -nt $DICT ]]; then
-	rm -f $DICT
-	picard CreateSequenceDictionary R=$FASTAFILE O=$DICT
-	ln -s $DICT $FASTAFILE.dict 
+	samtools dict $FASTAFILE > $DICT
+	ln -s $(basename $DICT) $FASTAFILE.dict 
 fi
-
-popd
