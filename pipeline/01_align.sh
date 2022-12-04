@@ -13,6 +13,7 @@ TOPOUTDIR=tmp
 if [ -f config.txt ]; then
   source config.txt
 fi
+mkdir -p $UNMAPPED $UNMAPPEDASM
 if [ -z $REFGENOME ]; then
   echo "NEED A REFGENOME - set in config.txt and make sure 00_index.sh is run"
   exit
@@ -80,8 +81,8 @@ do
         fi
       fi # SRTED file exists or was created by this block
 
-      time java -jar $PICARD MarkDuplicates I=$SRTED O=$DDFILE \
-      METRICS_FILE=logs/$STRAIN.dedup.metrics CREATE_INDEX=true VALIDATION_STRINGENCY=SILENT
+      time java -jar $PICARD MarkDuplicates -I $SRTED -O $DDFILE \
+      -METRICS_FILE logs/$STRAIN.dedup.metrics -CREATE_INDEX true -VALIDATION_STRINGENCY SILENT
       if [ -f $DDFILE ]; then
         rm -f $SRTED
       fi
@@ -95,4 +96,15 @@ do
       rm -f $(echo $DDFILE | sed 's/bam$/bai/')
     fi
   fi #FINALFILE created or already exists
+  FQ=$(basename $FASTQEXT .gz)
+  UMAP=$UNMAPPED/${STRAIN}.$FQ
+  UMAPSINGLE=$UNMAPPED/${STRAIN}_single.$FQ
+  echo "$UMAP $UMAPSINGLE $FQ"
+  module load BBMap
+  if [ ! -f $UMAP ]; then
+	samtools fastq -f 4 --threads 4 -N -s $UMAPSINGLE -o $UMAP $FINALFILE
+	pigz $UMAPSINGLE
+	repair.sh in=$UMAP out=$UMAP.gz
+	unlink $UMAP
+  fi
 done
