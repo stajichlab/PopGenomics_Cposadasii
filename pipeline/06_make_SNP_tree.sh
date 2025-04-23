@@ -22,6 +22,7 @@ if [[ -z $REFNAME ]]; then
 fi
 module load parallel
 module load bcftools/1.11
+module load bedtools
 module load samtools/1.11
 module load IQ-TREE/2.1.1
 module load fasttree
@@ -41,7 +42,15 @@ do
 	bgzip $root.vcf
 	tabix $root.vcf.gz
     fi
-    vcf=$root.vcf.gz
+    if [[ ! -z $REPEATGFF && -f $GENOMEFOLDER/$REPEATGFF ]]; then
+	bcftools view -h $root.vcf.gz >  $root.filter_TEs.vcf
+    	bedtools intersect -v -a $root.vcf.gz -b $GENOMEFOLDER/$REPEATGFF >> $root.filter_TEs.vcf
+	bgzip -f $root.filter_TEs.vcf
+    	vcf=$root.filter_TEs.vcf.gz
+	tabix $vcf
+    else 
+	    vcf=$root.vcf.gz
+    fi
     printf ">%s\n%s\n" $REFNAME $(bcftools view -e 'AF=1' ${vcf} | bcftools query -e 'INFO/AF < 0.1' -f '%REF') > $FAS
     parallel -j $CPU print_fas ::: $(bcftools query -l ${vcf}) ::: $vcf >> $FAS
 
